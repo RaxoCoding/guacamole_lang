@@ -1,5 +1,7 @@
 # Guacamole Lang README
 
+![Guacamole Logo](https://raw.githubusercontent.com/Gomez0015/guacamole_lang/master/G_logo.png?token=GHSAT0AAAAAAB354JQ63O7XCBJ4DN5VXHZEZAA24OQ)
+
 ## Introduction
 
 **Name :** Guacamole,
