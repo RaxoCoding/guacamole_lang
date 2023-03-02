@@ -8,10 +8,18 @@ union Definition
     struct ast *astptr;
 };
 
+typedef enum
+{
+    __,
+    _int,
+    _func,
+} dltype;
+
 struct def_list
 {
     char *name;
     union Definition val;
+    dltype type;
     int builtin;
     struct def_list *next;
 };
@@ -33,19 +41,20 @@ struct ast
     enum
     {
         _,
-        _compound,
-        _const,
-        _var,
-        _func,
         _args,
         _call,
         _opeq,
-        _opmath,
+        _const,
         _opuna,
-        _oplogic,
+        _intvar,
+        _opmath,
         _opcomp,
+        _funcdef,
         _opblock,
         _opstack,
+        _oplogic,
+        _compound,
+        _opcontrol,
     } type;
     union Constant val;
     int size;

@@ -22,9 +22,6 @@ int readfunccall(struct parser *p, struct ast *a);
 // FUNCDEF <- 'funk ' VAR'(' (ARGUMENT (',' ARGUMENT)*)? ')' '{' (ALLBLOCKS)* '}' ';'?
 int readfuncdef(struct parser *p, struct ast *a);
 
-// ARGUMENT <- (PAR)
-int readargument(struct parser *p, struct ast *a);
-
 // BLOCK <- (IFBLOCK / WHILEBLOCK)
 int readblock(struct parser *p, struct ast *a);
 
@@ -76,6 +73,9 @@ int readopelse(struct parser *p, struct ast *a);
 // OPWHILE <- "while"
 int readopwhile(struct parser *p, struct ast *a);
 
+// OPBREAK <- "break"
+int readopbreak(struct parser *p, struct ast *a);
+
 // OPLOGIC <- ("||" / "&&")
 int readoplogic(struct parser *p, struct ast *a);
 
@@ -97,6 +97,9 @@ int readopuna(struct parser *p, struct ast *a);
 // OPEQ <- '='
 int readopeq(struct parser *p);
 
+// TYPE <- ("int" / "str")
+int readtype(struct parser *p);
+
 // VAR <- [a-zA-Z_][a-zA-Z_0-9]*
 int readvar(struct parser *p);
 
@@ -109,7 +112,7 @@ int readint(struct parser *p);
 
 int clean_ast(struct ast *ast)
 {
-    if (ast->type == _var || ast->type == _call || ast->type == _func)
+    if (ast->type == _intvar || ast->type == _call || ast->type == _funcdef)
     {
         free(ast->val.strval);
     }
@@ -224,6 +227,19 @@ int readvar(struct parser *p)
     if (readid(p))
         ret = 1;
     end_capture(p, "VAR");
+
+    return ret;
+}
+
+int readtype(struct parser *p)
+{
+    int ret = 0;
+
+    clean_space(p);
+    begin_capture(p, "TYPE");
+    if (readtext(p, "int"))
+        ret = 1;
+    end_capture(p, "TYPE");
 
     return ret;
 }
@@ -413,6 +429,24 @@ int readoplogic(struct parser *p, struct ast *ast)
     return ret;
 }
 
+int readopbreak(struct parser *p, struct ast *ast)
+{
+    int ret = 0;
+
+    clean_space(p);
+    if (readtext(p, "break"))
+        ret = 1;
+
+    if (ret)
+    {
+        struct ast *sub_ast = prepend_or_reuse_ast(ast);
+        sub_ast->type = _opcontrol;
+        sub_ast->val.strval = "break";
+    }
+
+    return ret;
+}
+
 int readopwhile(struct parser *p, struct ast *ast)
 {
     int ret = 0;
@@ -513,7 +547,7 @@ int readpar(struct parser *p, struct ast *ast)
         char *tmp = get_value(p, "VAR");
 
         sub_ast = append_or_reuse_ast(sub_ast);
-        sub_ast->type = _var;
+        sub_ast->type = _intvar;
         sub_ast->val.strval = tmp;
 
         ret = 1;
@@ -631,13 +665,13 @@ int readexpr(struct parser *p, struct ast *ast)
     struct ast *sub_ast = append_or_reuse_ast(ast);
 
     int last_pos = p->current_pos;
-    if (readvar(p))
+    if (readtype(p) && readvar(p))
     {
         if (readopeq(p))
         {
             char *var = get_value(p, "VAR");
             struct ast *var_ast = append_or_reuse_ast(sub_ast);
-            var_ast->type = _var;
+            var_ast->type = _intvar;
             var_ast->val.strval = var;
 
             struct ast *eq_ast = prepend_or_reuse_ast(var_ast);
@@ -937,16 +971,6 @@ int readblock(struct parser *p, struct ast *a)
     return ret;
 }
 
-int readargument(struct parser *p, struct ast *a)
-{
-    int ret = 0;
-
-    if (readcalc(p, a))
-        ret = 1;
-
-    return ret;
-}
-
 int readfuncdef(struct parser *p, struct ast *ast)
 {
     int ret = 0;
@@ -961,18 +985,18 @@ int readfuncdef(struct parser *p, struct ast *ast)
         {
             if (readchar(p, '('))
             {
-                sub_ast->type = _func;
+                sub_ast->type = _funcdef;
                 sub_ast->val.strval = get_value(p, "VAR");
 
                 struct ast *args_ast = append_or_reuse_ast(sub_ast);
                 args_ast->type = _args;
 
                 clean_space(p);
-                while (readvar(p))
+                while (readtype(p) && readvar(p))
                 {
                     char *var = get_value(p, "VAR");
                     struct ast *var_ast = append_or_reuse_ast(args_ast);
-                    var_ast->type = _var;
+                    var_ast->type = _intvar;
                     var_ast->val.strval = var;
 
                     clean_space(p);
@@ -1030,7 +1054,7 @@ int readfunccall(struct parser *p, struct ast *ast)
         sub_ast->val.strval = get_value(p, "VAR");
 
         clean_space(p);
-        while (readargument(p, sub_ast))
+        while (readcalc(p, sub_ast))
         {
             clean_space(p);
             if (!readchar(p, ','))
@@ -1110,44 +1134,22 @@ struct def_list *getdef(struct scope *s, char *name)
     return NULL;
 }
 
-int create_or_reuse_var(struct ast *a, struct scope *s, int val)
+int create_or_reuse_dl(struct ast *a, struct scope *s, union Definition v)
 {
     struct def_list *ptr = getdef(s, a->val.strval);
 
     if (ptr && !ptr->builtin)
     {
-        ptr->val.intval = val;
+        ptr->val = v;
     }
     else if (!ptr)
     {
         struct def_list *dl = calloc(1, sizeof(struct def_list));
-        dl->val.intval = val;
         char *name = calloc(1, sizeof(char) * (strlen(a->val.strval) + 1));
         strcpy(name, a->val.strval);
         dl->name = name;
-
-        dl->next = s->defs;
-        s->defs = dl;
-    }
-
-    return 1;
-}
-
-int create_or_reuse_func(struct ast *func_ast, struct scope *s)
-{
-    struct def_list *ptr = getdef(s, func_ast->val.strval);
-
-    if (ptr && !ptr->builtin)
-    {
-        ptr->val.astptr = func_ast;
-    }
-    else if (!ptr)
-    {
-        struct def_list *dl = calloc(1, sizeof(struct def_list));
-        dl->val.astptr = func_ast;
-        char *name = calloc(1, sizeof(char) * (strlen(func_ast->val.strval) + 1));
-        strcpy(name, func_ast->val.strval);
-        dl->name = name;
+        dl->val = v;
+        dl->type = __;
 
         dl->next = s->defs;
         s->defs = dl;
@@ -1213,9 +1215,9 @@ struct scope *duplicate_scope(struct scope *s)
             strcpy(name, ptr->name);
             dl->name = name;
 
-            dl->val.astptr = ptr->val.astptr;
-            dl->val.intval = ptr->val.intval;
+            dl->val = ptr->val;
             dl->builtin = ptr->builtin;
+            dl->type = ptr->type;
 
             if (last)
                 last->next = dl;
@@ -1261,7 +1263,7 @@ int recursive_eval(struct ast *ast, struct scope *s)
         return 1;
     }
 
-    if (!ast->size && ast->type == _var)
+    if (!ast->size && ast->type == _intvar)
     {
         struct def_list *ptr;
 
@@ -1274,9 +1276,11 @@ int recursive_eval(struct ast *ast, struct scope *s)
         return 0;
     }
 
-    if (ast->type == _func)
+    if (ast->type == _funcdef)
     {
-        return create_or_reuse_func(ast, s);
+        union Definition val;
+        val.astptr = ast;
+        return create_or_reuse_dl(ast, s, val);
     }
     else if (ast->type == _call)
     {
@@ -1318,7 +1322,9 @@ int recursive_eval(struct ast *ast, struct scope *s)
 
                         for (i = 0; i < func_ast->edges[0]->size; i++)
                         {
-                            create_or_reuse_var(func_ast->edges[0]->edges[i], func_scope, args_res[i]);
+                            union Definition val;
+                            val.intval = args_res[i];
+                            create_or_reuse_dl(func_ast->edges[0]->edges[i], func_scope, val);
                         }
 
                         ret = recursive_eval(func_ast->edges[1], func_scope);
@@ -1344,7 +1350,7 @@ int recursive_eval(struct ast *ast, struct scope *s)
                                     struct def_list *og;
                                     if ((og = getdef(s, ptr->name)))
                                     {
-                                        og->val.intval = ptr->val.intval;
+                                        og->val = ptr->val;
                                     }
                                 }
 
@@ -1388,7 +1394,7 @@ int recursive_eval(struct ast *ast, struct scope *s)
             recursive_eval(ast->edges[0], s);
             if (s->current_val)
                 ret = recursive_eval(ast->edges[1], s);
-                
+
             return ret;
         }
         else if (!strcmp(ast->val.strval, "else") && ast->size > 0)
@@ -1461,7 +1467,9 @@ int recursive_eval(struct ast *ast, struct scope *s)
         if (!ret)
             return 0;
 
-        ret = create_or_reuse_var(ast->edges[0], s, r);
+        union Definition val;
+        val.intval = r;    
+        ret = create_or_reuse_dl(ast->edges[0], s, val);
 
         return ret;
     }
@@ -1554,6 +1562,7 @@ int create_builtin(struct scope *s, char *name)
 
     dl->name = tmp;
     dl->builtin = 1;
+    dl->type = _func;
     dl->next = s->defs;
     s->defs = dl;
 

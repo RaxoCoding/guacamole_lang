@@ -3,9 +3,8 @@ LANG <- ALLBLOCKS* EOF
 ALLBLOCKS <- (COMMENT / FUNCDEF / BLOCK / EXPR)
 
 # FUNCTIONS
-FUNCCALL <- VAR'(' (ARGUMENT (',' ARGUMENT)*)? ')'
-FUNCDEF <- 'funk ' VAR'(' (VAR (',' VAR)*)? ')' '{' (ALLBLOCKS)* '}' ';'?
-ARGUMENT <- (CALC)
+FUNCCALL <- VAR'(' (CALC (',' CALC)*)? ')'
+FUNCDEF <- 'funk ' VAR'(' (TYPE VAR (',' TYPE VAR)*)? ')' '{' (ALLBLOCKS)* '}' ';'?
 
 # BLOCKS
 BLOCK <- (IFELSEBLOCK / WHILEBLOCK)
@@ -16,7 +15,7 @@ ELSEBLOCK <- OPELSE '{' (ALLBLOCKS)* '}'
 WHILEBLOCK <- OPWHILE '(' CALC ')' '{' (ALLBLOCKS)* '}' ';'?
 
 # OPERATIONS
-EXPR <- (VAR OPEQ)? CALC ';'
+EXPR <- (TYPE VAR OPEQ)? CALC ';'
 CALC <- COMP (OPLOGIC COMP)*
 COMP <- ADD (OPCOMP ADD)*
 ADD <- MUL (OPADD MUL)*
@@ -34,8 +33,9 @@ OPCOMP <- ("==" / "!=" / "<=" / '<' / ">=" / '>')
 OPADD <- ('+' / '-' / '!')
 OPMUL <- ('*' / '/' / '%' )
 OPPOW <- '^'
-OPUNA <- ('+' / '-' / '!')*
+OPUNA <- ('+' / '-' / '!')
 OPEQ <- '='
+TYPE <- ("int" / "str")
 VAR <- [a-zA-Z_][a-zA-Z_0-9]*
 INT <- [0-9]+
 COMMENT <- "//" .*
