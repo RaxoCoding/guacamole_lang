@@ -30,6 +30,13 @@ struct scope
     long int current_val;
 };
 
+struct error_scope
+{
+    int begin;
+    int end;
+    char *err;
+};
+
 union Constant
 {
     int intval;
@@ -42,16 +49,16 @@ struct ast
     {
         _,
         _args,
-        _call,
+        _funccall,
         _opeq,
         _const,
         _opuna,
-        _intvar,
+        _var,
         _opmath,
         _opcomp,
         _funcdef,
-        _opblock,
-        _opstack,
+        _block,
+        _loop,
         _oplogic,
         _compound,
         _opcontrol,
@@ -59,9 +66,11 @@ struct ast
     union Constant val;
     int size;
     struct ast **edges;
+    int begin;
+    int end;
 };
 
-int my_calc(struct parser *p, struct ast *a);
+int my_calc(struct parser *p, struct ast *a, struct error_scope *err_s);
 int clean_ast(struct ast *ast);
 int eval(struct ast *a, struct scope *s);
 

@@ -1,7 +1,6 @@
 #include "my_parser.h"
 #include "my_calc.h"
 #include "builtins.h"
-#include "errors.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -97,9 +96,6 @@ int readopuna(struct parser *p, struct ast *a);
 // OPEQ <- '='
 int readopeq(struct parser *p);
 
-// TYPE <- ("int" / "str")
-int readtype(struct parser *p);
-
 // VAR <- [a-zA-Z_][a-zA-Z_0-9]*
 int readvar(struct parser *p);
 
@@ -112,7 +108,7 @@ int readint(struct parser *p);
 
 int clean_ast(struct ast *ast)
 {
-    if (ast->type == _intvar || ast->type == _call || ast->type == _funcdef)
+    if (ast->type == _var || ast->type == _funccall || ast->type == _funcdef)
     {
         free(ast->val.strval);
     }
@@ -140,15 +136,17 @@ int remove_last(struct ast *ast)
     return 1;
 }
 
-struct ast *append_or_reuse_ast(struct ast *ast)
+struct ast *append_or_reuse_ast(struct ast *ast, struct parser *p)
 {
     if (!ast->type)
     {
+        ast->begin = p->current_pos;
         return ast;
     }
     else
     {
         struct ast *sub_ast = calloc(1, sizeof(struct ast));
+        sub_ast->begin = p->current_pos;
 
         void *ptr = reallocarray(ast->edges, ast->size + 1, sizeof(struct ast *));
 
@@ -160,7 +158,6 @@ struct ast *append_or_reuse_ast(struct ast *ast)
         }
 
         ast->edges = (struct ast **)ptr;
-
         ast->edges[ast->size] = sub_ast;
         ast->size += 1;
 
@@ -168,10 +165,11 @@ struct ast *append_or_reuse_ast(struct ast *ast)
     }
 }
 
-struct ast *prepend_or_reuse_ast(struct ast *ast)
+struct ast *prepend_or_reuse_ast(struct ast *ast, struct parser *p)
 {
     if (!ast->type)
     {
+        ast->begin = p->current_pos;
         return ast;
     }
     else
@@ -193,6 +191,7 @@ struct ast *prepend_or_reuse_ast(struct ast *ast)
 
         ast->edges[ast->size] = sub_ast;
         ast->size += 1;
+        ast->begin = p->current_pos;
 
         return ast;
     }
@@ -231,19 +230,6 @@ int readvar(struct parser *p)
     return ret;
 }
 
-int readtype(struct parser *p)
-{
-    int ret = 0;
-
-    clean_space(p);
-    begin_capture(p, "TYPE");
-    if (readtext(p, "int"))
-        ret = 1;
-    end_capture(p, "TYPE");
-
-    return ret;
-}
-
 int readopeq(struct parser *p)
 {
     int ret = 0;
@@ -263,6 +249,7 @@ int readopuna(struct parser *p, struct ast *ast)
 
     clean_space(p);
     begin_capture(p, "OPUNA");
+    int begin = p->current_pos;
     if (readchar(p, '+') || readchar(p, '-') || readchar(p, '!'))
         ret = 1;
     end_capture(p, "OPUNA");
@@ -270,8 +257,10 @@ int readopuna(struct parser *p, struct ast *ast)
     if (ret)
     {
         char *op = get_value(p, "OPUNA");
-        struct ast *sub_ast = prepend_or_reuse_ast(ast);
+        struct ast *sub_ast = prepend_or_reuse_ast(ast, p);
         sub_ast->type = _opuna;
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
 
         if (op[0] == '+')
             sub_ast->val.strval = "+";
@@ -292,6 +281,7 @@ int readoppow(struct parser *p, struct ast *ast)
 
     clean_space(p);
     begin_capture(p, "OPPOW");
+    int begin = p->current_pos;
     if (readchar(p, '^'))
         ret = 1;
     end_capture(p, "OPPOW");
@@ -299,8 +289,10 @@ int readoppow(struct parser *p, struct ast *ast)
     if (ret)
     {
         char *op = get_value(p, "OPPOW");
-        struct ast *sub_ast = prepend_or_reuse_ast(ast);
+        struct ast *sub_ast = prepend_or_reuse_ast(ast, p);
         sub_ast->type = _opmath;
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
 
         if (op[0] == '^')
             sub_ast->val.strval = "^";
@@ -317,6 +309,7 @@ int readopmul(struct parser *p, struct ast *ast)
 
     clean_space(p);
     begin_capture(p, "OPMUL");
+    int begin = p->current_pos;
     if (readchar(p, '*') || (readchar(p, '/') || readchar(p, '%')))
         ret = 1;
     end_capture(p, "OPMUL");
@@ -324,8 +317,10 @@ int readopmul(struct parser *p, struct ast *ast)
     if (ret)
     {
         char *op = get_value(p, "OPMUL");
-        struct ast *sub_ast = prepend_or_reuse_ast(ast);
+        struct ast *sub_ast = prepend_or_reuse_ast(ast, p);
         sub_ast->type = _opmath;
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
 
         if (op[0] == '*')
             sub_ast->val.strval = "*";
@@ -346,6 +341,7 @@ int readopadd(struct parser *p, struct ast *ast)
 
     clean_space(p);
     begin_capture(p, "OPADD");
+    int begin = p->current_pos;
     if (readchar(p, '+') || (readchar(p, '-')))
         ret = 1;
     end_capture(p, "OPADD");
@@ -353,8 +349,10 @@ int readopadd(struct parser *p, struct ast *ast)
     if (ret)
     {
         char *op = get_value(p, "OPADD");
-        struct ast *sub_ast = prepend_or_reuse_ast(ast);
+        struct ast *sub_ast = prepend_or_reuse_ast(ast, p);
         sub_ast->type = _opmath;
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
 
         if (op[0] == '+')
             sub_ast->val.strval = "+";
@@ -373,6 +371,7 @@ int readopcomp(struct parser *p, struct ast *ast)
 
     clean_space(p);
     begin_capture(p, "OPCOMP");
+    int begin = p->current_pos;
     if (readtext(p, "==") || readtext(p, "!=") || readtext(p, "<=") || readchar(p, '<') || readtext(p, ">=") || readchar(p, '>'))
         ret = 1;
     end_capture(p, "OPCOMP");
@@ -380,8 +379,10 @@ int readopcomp(struct parser *p, struct ast *ast)
     if (ret)
     {
         char *op = get_value(p, "OPCOMP");
-        struct ast *sub_ast = prepend_or_reuse_ast(ast);
+        struct ast *sub_ast = prepend_or_reuse_ast(ast, p);
         sub_ast->type = _opcomp;
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
 
         if (!strcmp(op, "=="))
             sub_ast->val.strval = "==";
@@ -408,6 +409,7 @@ int readoplogic(struct parser *p, struct ast *ast)
 
     clean_space(p);
     begin_capture(p, "OPLOGIC");
+    int begin = p->current_pos;
     if (readtext(p, "||") || readtext(p, "&&"))
         ret = 1;
     end_capture(p, "OPLOGIC");
@@ -415,8 +417,10 @@ int readoplogic(struct parser *p, struct ast *ast)
     if (ret)
     {
         char *op = get_value(p, "OPLOGIC");
-        struct ast *sub_ast = prepend_or_reuse_ast(ast);
+        struct ast *sub_ast = prepend_or_reuse_ast(ast, p);
         sub_ast->type = _oplogic;
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
 
         if (!strcmp(op, "||"))
             sub_ast->val.strval = "||";
@@ -434,14 +438,17 @@ int readopbreak(struct parser *p, struct ast *ast)
     int ret = 0;
 
     clean_space(p);
+    int begin = p->current_pos;
     if (readtext(p, "break"))
         ret = 1;
 
     if (ret)
     {
-        struct ast *sub_ast = prepend_or_reuse_ast(ast);
+        struct ast *sub_ast = prepend_or_reuse_ast(ast, p);
         sub_ast->type = _opcontrol;
         sub_ast->val.strval = "break";
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
     }
 
     return ret;
@@ -452,14 +459,17 @@ int readopwhile(struct parser *p, struct ast *ast)
     int ret = 0;
 
     clean_space(p);
+    int begin = p->current_pos;
     if (readtext(p, "while"))
         ret = 1;
 
     if (ret)
     {
-        struct ast *sub_ast = prepend_or_reuse_ast(ast);
-        sub_ast->type = _opblock;
+        struct ast *sub_ast = prepend_or_reuse_ast(ast, p);
+        sub_ast->type = _loop;
         sub_ast->val.strval = "while";
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
     }
 
     return ret;
@@ -470,14 +480,17 @@ int readopelse(struct parser *p, struct ast *ast)
     int ret = 0;
 
     clean_space(p);
+    int begin = p->current_pos;
     if (readtext(p, "else"))
         ret = 1;
 
     if (ret)
     {
-        struct ast *sub_ast = prepend_or_reuse_ast(ast);
-        sub_ast->type = _opblock;
+        struct ast *sub_ast = prepend_or_reuse_ast(ast, p);
+        sub_ast->type = _block;
         sub_ast->val.strval = "else";
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
     }
 
     return ret;
@@ -488,14 +501,17 @@ int readopelif(struct parser *p, struct ast *ast)
     int ret = 0;
 
     clean_space(p);
+    int begin = p->current_pos;
     if (readtext(p, "elif"))
         ret = 1;
 
     if (ret)
     {
-        struct ast *sub_ast = prepend_or_reuse_ast(ast);
-        sub_ast->type = _opblock;
+        struct ast *sub_ast = prepend_or_reuse_ast(ast, p);
+        sub_ast->type = _block;
         sub_ast->val.strval = "elif";
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
     }
 
     return ret;
@@ -506,14 +522,17 @@ int readopif(struct parser *p, struct ast *ast)
     int ret = 0;
 
     clean_space(p);
+    int begin = p->current_pos;
     if (readtext(p, "if"))
         ret = 1;
 
     if (ret)
     {
-        struct ast *sub_ast = prepend_or_reuse_ast(ast);
-        sub_ast->type = _opblock;
+        struct ast *sub_ast = prepend_or_reuse_ast(ast, p);
+        sub_ast->type = _block;
         sub_ast->val.strval = "if";
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
     }
 
     return ret;
@@ -523,39 +542,38 @@ int readpar(struct parser *p, struct ast *ast)
 {
     int ret = 0;
 
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
 
     clean_space(p);
     while (readopuna(p, sub_ast))
         ;
 
+    struct ast *par_ast = append_or_reuse_ast(sub_ast, p);
     if (begin_capture(p, "INT") && readint(p) && end_capture(p, "INT"))
     {
         char *tmp = get_value(p, "INT");
 
-        struct ast *int_ast = append_or_reuse_ast(sub_ast);
-        int_ast->type = _const;
-        int_ast->val.intval = atoi(tmp);
+        par_ast->type = _const;
+        par_ast->val.intval = atoi(tmp);
+        par_ast->end = p->current_pos;
 
         free(tmp);
         ret = 1;
     }
-    else if (readfunccall(p, sub_ast))
+    else if (readfunccall(p, par_ast))
         ret = 1;
     else if (readvar(p))
     {
         char *tmp = get_value(p, "VAR");
 
-        sub_ast = append_or_reuse_ast(sub_ast);
-        sub_ast->type = _intvar;
-        sub_ast->val.strval = tmp;
+        par_ast->type = _var;
+        par_ast->val.strval = tmp;
+        par_ast->end = p->current_pos;
 
         ret = 1;
     }
-    else if (readchar(p, '(') && (sub_ast = append_or_reuse_ast(sub_ast)) && readcalc(p, sub_ast) && readchar(p, ')'))
-    {
+    else if (readchar(p, '(') && readcalc(p, par_ast) && readchar(p, ')'))
         ret = 1;
-    }
 
     if (!ret && (sub_ast != ast))
         remove_last(ast);
@@ -567,7 +585,7 @@ int readpow(struct parser *p, struct ast *ast)
 {
     int ret = 0;
 
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
 
     if (readpar(p, sub_ast))
     {
@@ -586,7 +604,7 @@ int readmul(struct parser *p, struct ast *ast)
 {
     int ret = 0;
 
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
 
     if (readpow(p, sub_ast))
     {
@@ -605,7 +623,7 @@ int readadd(struct parser *p, struct ast *ast)
 {
     int ret = 0;
 
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
 
     if (readmul(p, sub_ast))
     {
@@ -624,7 +642,7 @@ int readcomp(struct parser *p, struct ast *ast)
 {
     int ret = 0;
 
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
 
     if (readadd(p, sub_ast))
     {
@@ -643,7 +661,7 @@ int readcalc(struct parser *p, struct ast *ast)
 {
     int ret = 0;
 
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
 
     if (readcomp(p, sub_ast))
     {
@@ -662,22 +680,28 @@ int readexpr(struct parser *p, struct ast *ast)
 {
     int ret = 0;
 
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
 
     int last_pos = p->current_pos;
-    readtype(p);
+
+    int var_begin = p->current_pos;
     if (readvar(p))
     {
+        int eq_begin = p->current_pos;
         if (readopeq(p))
         {
+            struct ast *var_ast = append_or_reuse_ast(sub_ast, p);
             char *var = get_value(p, "VAR");
-            struct ast *var_ast = append_or_reuse_ast(sub_ast);
-            var_ast->type = _intvar;
+            var_ast->type = _var;
             var_ast->val.strval = var;
+            var_ast->begin = var_begin;
+            var_ast->end = eq_begin;
 
-            struct ast *eq_ast = prepend_or_reuse_ast(var_ast);
+            struct ast *eq_ast = prepend_or_reuse_ast(var_ast, p);
             eq_ast->type = _opeq;
             eq_ast->val.strval = "=";
+            eq_ast->begin = eq_begin;
+            eq_ast->end = p->current_pos;
         }
         else
         {
@@ -704,11 +728,11 @@ int readwhileblock(struct parser *p, struct ast *ast)
     int ret = 0;
 
     int tmp_pos = p->current_pos;
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
     if (readopwhile(p, sub_ast))
     {
 
-        struct ast *whilecond_ast = append_or_reuse_ast(sub_ast);
+        struct ast *whilecond_ast = append_or_reuse_ast(sub_ast, p);
 
         clean_space(p);
         if (readchar(p, '('))
@@ -721,7 +745,7 @@ int readwhileblock(struct parser *p, struct ast *ast)
                     clean_space(p);
                     if (readchar(p, '{'))
                     {
-                        struct ast *whileblock_ast = append_or_reuse_ast(sub_ast);
+                        struct ast *whileblock_ast = append_or_reuse_ast(sub_ast, p);
                         whileblock_ast->type = _compound;
 
                         int tmp_pos = p->current_pos;
@@ -765,14 +789,14 @@ int readelseblock(struct parser *p, struct ast *ast)
     int ret = 0;
 
     int tmp_pos = p->current_pos;
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
     if (readopelse(p, sub_ast))
     {
 
         clean_space(p);
         if (readchar(p, '{'))
         {
-            struct ast *elseblock_ast = append_or_reuse_ast(sub_ast);
+            struct ast *elseblock_ast = append_or_reuse_ast(sub_ast, p);
             elseblock_ast->type = _compound;
 
             int tmp_pos = p->current_pos;
@@ -808,10 +832,10 @@ int readelifblock(struct parser *p, struct ast *ast)
     int ret = 0;
 
     int tmp_pos = p->current_pos;
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
     if (readopelif(p, sub_ast))
     {
-        struct ast *elifcond_ast = append_or_reuse_ast(sub_ast);
+        struct ast *elifcond_ast = append_or_reuse_ast(sub_ast, p);
 
         clean_space(p);
         if (readchar(p, '('))
@@ -825,7 +849,7 @@ int readelifblock(struct parser *p, struct ast *ast)
                     clean_space(p);
                     if (readchar(p, '{'))
                     {
-                        struct ast *elifblock_ast = append_or_reuse_ast(sub_ast);
+                        struct ast *elifblock_ast = append_or_reuse_ast(sub_ast, p);
                         elifblock_ast->type = _compound;
 
                         int tmp_pos = p->current_pos;
@@ -868,11 +892,11 @@ int readifblock(struct parser *p, struct ast *ast)
     int ret = 0;
 
     int tmp_pos = p->current_pos;
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
     if (readopif(p, sub_ast))
     {
 
-        struct ast *ifcond_ast = append_or_reuse_ast(sub_ast);
+        struct ast *ifcond_ast = append_or_reuse_ast(sub_ast, p);
 
         clean_space(p);
         if (readchar(p, '('))
@@ -886,7 +910,7 @@ int readifblock(struct parser *p, struct ast *ast)
                     clean_space(p);
                     if (readchar(p, '{'))
                     {
-                        struct ast *ifblock_ast = append_or_reuse_ast(sub_ast);
+                        struct ast *ifblock_ast = append_or_reuse_ast(sub_ast, p);
                         ifblock_ast->type = _compound;
 
                         int tmp_pos = p->current_pos;
@@ -929,8 +953,8 @@ int readifelseblock(struct parser *p, struct ast *ast)
     int ret = 0;
 
     int tmp_pos = p->current_pos;
-    struct ast *sub_ast = append_or_reuse_ast(ast);
-    sub_ast->type = _opblock;
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
+    sub_ast->type = _block;
     sub_ast->val.strval = "ifelse";
 
     if (readifblock(p, sub_ast))
@@ -947,6 +971,8 @@ int readifelseblock(struct parser *p, struct ast *ast)
 
     clean_space(p);
     readchar(p, ';');
+
+    sub_ast->end = p->current_pos;
 
     if (!ret)
     {
@@ -976,7 +1002,7 @@ int readfuncdef(struct parser *p, struct ast *ast)
 {
     int ret = 0;
 
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
 
     int tmp_pos = p->current_pos;
     if (readtext(p, "funk "))
@@ -989,23 +1015,23 @@ int readfuncdef(struct parser *p, struct ast *ast)
                 sub_ast->type = _funcdef;
                 sub_ast->val.strval = get_value(p, "VAR");
 
-                struct ast *args_ast = append_or_reuse_ast(sub_ast);
+                struct ast *args_ast = append_or_reuse_ast(sub_ast, p);
                 args_ast->type = _args;
 
                 clean_space(p);
-                readtype(p);
                 while (readvar(p))
                 {
                     char *var = get_value(p, "VAR");
-                    struct ast *var_ast = append_or_reuse_ast(args_ast);
-                    var_ast->type = _intvar;
+                    struct ast *var_ast = append_or_reuse_ast(args_ast, p);
+                    var_ast->type = _var;
                     var_ast->val.strval = var;
 
                     clean_space(p);
                     if (!readchar(p, ','))
                         break;
-                    readtype(p);
                 }
+
+                args_ast->end = p->current_pos;
 
                 clean_space(p);
                 if (readchar(p, ')'))
@@ -1013,7 +1039,7 @@ int readfuncdef(struct parser *p, struct ast *ast)
                     clean_space(p);
                     if (readchar(p, '{'))
                     {
-                        struct ast *func_ast = append_or_reuse_ast(sub_ast);
+                        struct ast *func_ast = append_or_reuse_ast(sub_ast, p);
                         func_ast->type = _compound;
 
                         int tmp_pos = p->current_pos;
@@ -1035,6 +1061,8 @@ int readfuncdef(struct parser *p, struct ast *ast)
         }
     }
 
+    sub_ast->end = p->current_pos;
+
     if (!ret)
     {
         remove_last(ast);
@@ -1048,12 +1076,12 @@ int readfunccall(struct parser *p, struct ast *ast)
 {
     int ret = 0;
 
-    struct ast *sub_ast = append_or_reuse_ast(ast);
+    struct ast *sub_ast = append_or_reuse_ast(ast, p);
 
     int tmp_pos = p->current_pos;
     if (readvar(p) && readchar(p, '('))
     {
-        sub_ast->type = _call;
+        sub_ast->type = _funccall;
         sub_ast->val.strval = get_value(p, "VAR");
 
         clean_space(p);
@@ -1069,6 +1097,8 @@ int readfunccall(struct parser *p, struct ast *ast)
         else
             p->err = "Missing function call closing parenthesis ')'";
     }
+
+    sub_ast->end = p->current_pos;
 
     if (!ret)
     {
@@ -1107,18 +1137,13 @@ int readlang(struct parser *p, struct ast *ast)
 
     if (!readeof(p))
     {
-        safe_exit(p, ast);
+        ret = 0;
     }
     else
         ret = 1;
 
     p->current_pos = 0;
     return ret;
-}
-
-int my_calc(struct parser *p, struct ast *ast)
-{
-    return readlang(p, ast);
 }
 
 struct def_list *getdef(struct scope *s, char *name)
@@ -1159,6 +1184,212 @@ int create_or_reuse_dl(struct ast *a, struct scope *s, union Definition v)
     }
 
     return 1;
+}
+
+void clean_scope(struct scope *s)
+{
+    struct def_list *ptr = s->defs;
+    if (ptr != NULL)
+    {
+        while (ptr)
+        {
+            struct def_list *tmp = ptr->next;
+
+            if (ptr->name)
+            {
+                free(ptr->name);
+            }
+            free(ptr);
+            ptr = tmp;
+        }
+    }
+}
+
+int throw_err(struct ast *ast, struct error_scope *err_s, char *msg)
+{
+    if (err_s->begin == -1)
+    {
+        err_s->begin = ast->begin;
+        err_s->end = ast->end;
+        err_s->err = msg;
+    }
+
+    return 0;
+}
+
+int check_ast(struct ast *ast, struct scope *s, struct error_scope *err_s)
+{
+    if (ast == NULL)
+        return 0;
+
+    if (ast->type == _const)
+    {
+        if (ast->size > 0)
+            return throw_err(ast, err_s, "_const should have no edges!");
+
+        return 1;
+    }
+
+    if (ast->type == _var)
+    {
+        if (ast->size > 0)
+            return throw_err(ast, err_s, "_var should have no edges!");
+
+        return 1;
+    }
+
+    if (ast->type == _funcdef)
+    {
+        if (ast->size != 2)
+            return throw_err(ast, err_s, "_funcdef should have 2 edges!");
+        if (ast->edges[0]->type != _args)
+            return throw_err(ast, err_s, "_funcdef edge[0] should be of type _args!");
+        if (ast->edges[1]->type != _compound)
+            return throw_err(ast, err_s, "_funcdef edge[1] should be of type _compound!");
+
+        union Definition val;
+        val.astptr = ast;
+        create_or_reuse_dl(ast, s, val);
+
+        if (!check_ast(ast->edges[0], s, err_s) || !check_ast(ast->edges[1], s, err_s))
+            return 0;
+            
+        return 1;
+    }
+
+    if (ast->type == _funccall)
+    {
+        struct def_list *func;
+        if (!(func = getdef(s, ast->val.strval)))
+            return throw_err(ast, err_s, "_funccall should be after function is defined!");
+        if (ast->size != func->val.astptr->edges[0]->size)
+            return throw_err(ast, err_s, "_funccall should have the same # of args as the _funcdef!");
+
+        for (int i = 0; i < ast->size; i++)
+        {
+            if (!check_ast(ast->edges[i], s, err_s))
+                return 0;
+        }
+
+        return 1;
+    }
+
+    if (ast->type == _block)
+    {
+        if ((!strcmp(ast->val.strval, "ifelse")))
+        {
+            if (ast->size < 1)
+                return throw_err(ast, err_s, "ifelse should have atleast 1 edge!");
+
+            for (int i = 0; i < ast->size; i++)
+            {
+                if (!check_ast(ast->edges[i], s, err_s))
+                    return 0;
+            }
+
+            return 1;
+        }
+
+        if ((!strcmp(ast->val.strval, "if") || !strcmp(ast->val.strval, "elif")))
+        {
+            if (ast->size != 2)
+                return throw_err(ast, err_s, "if/elif should have 2 edges!");
+            if (ast->edges[1]->type != _compound)
+                return throw_err(ast, err_s, "if/elif edge[1] should be of type _compound!");
+            if (!check_ast(ast->edges[0], s, err_s) || !check_ast(ast->edges[1], s, err_s))
+                return 0;
+
+            return 1;
+        }
+
+        if (!strcmp(ast->val.strval, "else"))
+        {
+            if (ast->size != 1)
+                return throw_err(ast, err_s, "else sould have 1 edge!");
+            if (ast->edges[0]->type != _compound)
+                return throw_err(ast, err_s, "else edge[0] should be of type _compound!");
+            if (!check_ast(ast->edges[0], s, err_s))
+                return 0;
+
+            return 1;
+        }
+    }
+
+    if (ast->type == _loop)
+    {
+        if (ast->size != 2)
+            return throw_err(ast, err_s, "_loop should have 2 edges!");
+        if (ast->edges[1]->type != _compound)
+            return throw_err(ast, err_s, "_loop edges[1] should be of type _compound!");
+        if (!check_ast(ast->edges[0], s, err_s) || !check_ast(ast->edges[1], s, err_s))
+            return 0;
+
+        return 1;
+    }
+
+    if (ast->type == _opuna)
+    {
+        if (ast->size != 1)
+            return throw_err(ast, err_s, "_opuna should have 1 edge!");
+        if (!check_ast(ast->edges[0], s, err_s))
+            return 0;
+
+        return 1;
+    }
+
+    if (ast->type == _opeq)
+    {
+        if (ast->size != 2)
+            return throw_err(ast, err_s, "_opeq should have 2 edges!");
+
+        if (ast->edges[0]->type != _var)
+            return throw_err(ast, err_s, "_opeq edge[0] should be of type _var!");
+        if (!check_ast(ast->edges[0], s, err_s) || !check_ast(ast->edges[1], s, err_s))
+            return 0;
+
+        return 1;
+    }
+
+    if (ast->type == _oplogic || ast->type == _opcomp || ast->type == _opmath)
+    {
+        if (ast->size < 2)
+            return throw_err(ast, err_s, "_oplogic/_opcomp/_opmath should have 2 edges!");
+        if (!check_ast(ast->edges[0], s, err_s) || !check_ast(ast->edges[1], s, err_s))
+            return 0;
+
+        return 1;
+    }
+
+    if (ast->type == _compound || ast->type == _args)
+    {
+        for (int i = 0; i < ast->size; i++)
+        {
+            if (!check_ast(ast->edges[i], s, err_s))
+                return 0;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
+int my_calc(struct parser *p, struct ast *ast, struct error_scope *err_s)
+{
+    int ret = 0;
+    struct scope s;
+    s.defs = 0;
+    err_s->begin = -1;
+
+    ret = readlang(p, ast);
+    if (ret != 0)
+    {
+        ret = check_ast(ast, &s, err_s);
+    }
+
+    clean_scope(&s);
+
+    return ret;
 }
 
 int check_cond(long a, long b, char *opc)
@@ -1236,25 +1467,6 @@ struct scope *duplicate_scope(struct scope *s)
     return new_scope;
 }
 
-void clean_scope(struct scope *s)
-{
-    struct def_list *ptr = s->defs;
-    if (ptr != NULL)
-    {
-        while (ptr)
-        {
-            struct def_list *tmp = ptr->next;
-
-            if (ptr->name)
-            {
-                free(ptr->name);
-            }
-            free(ptr);
-            ptr = tmp;
-        }
-    }
-}
-
 int recursive_eval(struct ast *ast, struct scope *s)
 {
     if (ast == NULL)
@@ -1266,7 +1478,7 @@ int recursive_eval(struct ast *ast, struct scope *s)
         return 1;
     }
 
-    if (!ast->size && ast->type == _intvar)
+    if (!ast->size && ast->type == _var)
     {
         struct def_list *ptr;
 
@@ -1285,7 +1497,7 @@ int recursive_eval(struct ast *ast, struct scope *s)
         val.astptr = ast;
         return create_or_reuse_dl(ast, s, val);
     }
-    else if (ast->type == _call)
+    else if (ast->type == _funccall)
     {
         int ret = 0;
         struct def_list *ptr;
@@ -1374,7 +1586,7 @@ int recursive_eval(struct ast *ast, struct scope *s)
         return ret;
     }
 
-    if (ast->type == _opblock)
+    if (ast->type == _block)
     {
         if (!strcmp(ast->val.strval, "ifelse") && ast->size > 0)
         {
@@ -1404,7 +1616,11 @@ int recursive_eval(struct ast *ast, struct scope *s)
         {
             return recursive_eval(ast->edges[0], s);
         }
-        else if (!strcmp(ast->val.strval, "while") && ast->size > 1)
+    }
+
+    if (ast->type == _loop)
+    {
+        if (!strcmp(ast->val.strval, "while") && ast->size > 1)
         {
             int ret = 0;
 
@@ -1471,7 +1687,7 @@ int recursive_eval(struct ast *ast, struct scope *s)
             return 0;
 
         union Definition val;
-        val.intval = r;    
+        val.intval = r;
         ret = create_or_reuse_dl(ast->edges[0], s, val);
 
         return ret;
@@ -1580,11 +1796,9 @@ void register_builtins(struct scope *s)
 
 int eval(struct ast *a, struct scope *s)
 {
-    int ret;
-
     s->defs = 0;
     register_builtins(s);
-    ret = recursive_eval(a, s);
+    recursive_eval(a, s);
     clean_scope(s);
-    return ret;
+    return 1;
 }

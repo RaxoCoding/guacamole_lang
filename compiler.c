@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define CNRM  "\x1B[0m"
+#define CRED  "\x1B[31m"
+
 char *readfile(char *filename)
 {
     FILE *textfile;
@@ -41,22 +44,40 @@ int main(int argc, char *argv[])
 
     struct ast ast;
     struct scope s;
+    struct error_scope err_s;
     struct parser *p = new_parser(content);
-    if (my_calc(p, &ast) && eval(&ast, &s))
+    if (my_calc(p, &ast, &err_s) && eval(&ast, &s))
     {
         printf("\nResult : %ld\n", s.current_val);
     }
     else
     {
+        fprintf(stderr, "\n%sERROR:%s\n", CRED, CNRM);
+
+        if (err_s.begin != -1)
+        {
+            p->last_pos = err_s.begin;
+        }
         // gestion d'erreur
         char *errline = get_line_error(p);
         struct position pos;
         count_lines(p, &pos);
-        fprintf(stderr, "Erreur line: %d, col: %d\n", pos.line, pos.col);
+        fprintf(stderr, "line: %d, col: %d\n", pos.line, pos.col);
         fprintf(stderr, "%s\n", errline);
         for (int i = 0; i < pos.col - 1; i += 1)
             fprintf(stderr, " ");
-        fprintf(stderr, "^\n");
+        if (err_s.begin != -1)
+        {
+            for (int i = 0; i < (err_s.end-err_s.begin); i++)
+            {
+                fprintf(stderr, "%s^", CRED);
+            }
+            fprintf(stderr, "%s\n", CNRM);
+            
+            fprintf(stderr, "err : %s\n", err_s.err);
+        } else {
+            fprintf(stderr, "%s^%s\n", CRED, CNRM);
+        }
         free(errline);
     }
 

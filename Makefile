@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -Werror -pedantic -std=gnu17 -fsanitize=address -g -lm
 LDLIBS=-lcriterion
-OBJS=my_parser.o my_calc.o builtins.o errors.o
+OBJS=my_parser.o my_calc.o builtins.o
 
 all: ${OBJS}
 

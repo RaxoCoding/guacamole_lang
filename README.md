@@ -59,20 +59,14 @@ Parse & Interpret code:
 &&      // AND
 ```
 
-### Types (Not forced)
-
-```c
-int // INTEGER [0-9]+
-```
-
 ### Variables
 
 ```c
-int a = 1;
+a = 1;
 
-int b = a + 5;
+b = a + 5;
 
-int c = (b ^ 4) * 4;
+c = (b ^ 4) * 4;
 ```
 
 ### Keywords
@@ -109,7 +103,7 @@ while (a < 5) {
 ### Functions
 
 ```c
-funk add(int a, int b) {
+funk add(a, b) {
     a + b;
 }
 ```
