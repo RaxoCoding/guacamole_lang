@@ -59,7 +59,7 @@ Parse & Interpret code:
 &&      // AND
 ```
 
-### Types
+### Types (Not forced)
 
 ```c
 int // INTEGER [0-9]+

@@ -665,7 +665,8 @@ int readexpr(struct parser *p, struct ast *ast)
     struct ast *sub_ast = append_or_reuse_ast(ast);
 
     int last_pos = p->current_pos;
-    if (readtype(p) && readvar(p))
+    readtype(p);
+    if (readvar(p))
     {
         if (readopeq(p))
         {
@@ -992,7 +993,8 @@ int readfuncdef(struct parser *p, struct ast *ast)
                 args_ast->type = _args;
 
                 clean_space(p);
-                while (readtype(p) && readvar(p))
+                readtype(p);
+                while (readvar(p))
                 {
                     char *var = get_value(p, "VAR");
                     struct ast *var_ast = append_or_reuse_ast(args_ast);
@@ -1002,6 +1004,7 @@ int readfuncdef(struct parser *p, struct ast *ast)
                     clean_space(p);
                     if (!readchar(p, ','))
                         break;
+                    readtype(p);
                 }
 
                 clean_space(p);
