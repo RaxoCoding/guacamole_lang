@@ -1,0 +1,41 @@
+# ENCAPSULATORS
+LANG <- ALLBLOCKS* EOF
+ALLBLOCKS <- (COMMENT / FUNCDEF / BLOCK / EXPR)
+
+# FUNCTIONS
+FUNCCALL <- VAR'(' (ARGUMENT (',' ARGUMENT)*)? ')'
+FUNCDEF <- 'funk ' VAR'(' (VAR (',' VAR)*)? ')' '{' (ALLBLOCKS)* '}' ';'?
+ARGUMENT <- (CALC)
+
+# BLOCKS
+BLOCK <- (IFELSEBLOCK / WHILEBLOCK)
+IFELSEBLOCK <- IFBLOCK ELIFBLOCK* ELSEBLOCK? ';'?
+IFBLOCK <- OPIF '(' CALC ')' '{' (ALLBLOCKS)* '}'
+ELIFBLOCK <- OPELIF '(' CALC ')' '{' (ALLBLOCKS)* '}'
+ELSEBLOCK <- OPELSE '{' (ALLBLOCKS)* '}'
+WHILEBLOCK <- OPWHILE '(' CALC ')' '{' (ALLBLOCKS)* '}' ';'?
+
+# OPERATIONS
+EXPR <- (VAR OPEQ)? CALC ';'
+CALC <- COMP (OPLOGIC COMP)*
+COMP <- ADD (OPCOMP ADD)*
+ADD <- MUL (OPADD MUL)*
+MUL <- POW (OPMUL POW)*
+POW <- PAR (OPPOW PAR)*
+PAR <- OPUNA* (INT / FUNCCALL / VAR / '(' CALC ')')
+
+# PRIMITIVE DEFINITIONS
+OPIF <- "if"
+OPELIF <- "elif"
+OPELSE <- "else"
+OPWHILE <- "while"
+OPLOGIC <- ("||" / "&&")
+OPCOMP <- ("==" / "!=" / "<=" / '<' / ">=" / '>')
+OPADD <- ('+' / '-' / '!')
+OPMUL <- ('*' / '/' / '%' )
+OPPOW <- '^'
+OPUNA <- ('+' / '-' / '!')*
+OPEQ <- '='
+VAR <- [a-zA-Z_][a-zA-Z_0-9]*
+INT <- [0-9]+
+COMMENT <- "//" .*
