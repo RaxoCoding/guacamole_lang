@@ -1,6 +1,6 @@
 # Guacamole Lang README
 
-<img src="https://github.com/Gomez0015/guacamole_lang/blob/master/G_logo.png?raw=true" alt="Guacamole Logo" width="600" height="663" />
+<img src="https://github.com/Gomez0015/guacamole_lang/blob/master/G_logo.png?raw=true" alt="Guacamole Logo" width="300" height="331" />
 
 ## Introduction
 
