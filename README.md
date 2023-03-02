@@ -2,7 +2,7 @@
 
 ![Guacamole Logo](https://github.com/Gomez0015/guacamole_lang/blob/master/G_logo.png?raw=true)
 
-<img src="https://github.com/Gomez0015/guacamole_lang/blob/master/G_logo.png?raw=true" alt="Guacamole Logo" width="400" height="400" />
+<img src="https://github.com/Gomez0015/guacamole_lang/blob/master/G_logo.png?raw=true" alt="Guacamole Logo" width="600" height="663" />
 
 ## Introduction
 
