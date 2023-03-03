@@ -78,6 +78,9 @@ int readopwhile(struct parser *p, struct ast *a);
 // OPBREAK <- "break"
 int readopbreak(struct parser *p, struct ast *a);
 
+// OPCONTINUE <- "continue"
+int readopcontinue(struct parser *p, struct ast *a);
+
 // OPRETURN <- "return"
 int readopreturn(struct parser *p, struct ast *a);
 
@@ -453,6 +456,27 @@ int readopreturn(struct parser *p, struct ast *ast)
         struct ast *sub_ast = append_or_reuse_ast(ast, p);
         sub_ast->type = _opcontrol;
         sub_ast->val.strval = "return";
+        sub_ast->begin = begin;
+        sub_ast->end = p->current_pos;
+    }
+
+    return ret;
+}
+
+int readopcontinue(struct parser *p, struct ast *ast)
+{
+    int ret = 0;
+
+    clean_space(p);
+    int begin = p->current_pos;
+    if (readtext(p, "continue"))
+        ret = 1;
+
+    if (ret)
+    {
+        struct ast *sub_ast = append_or_reuse_ast(ast, p);
+        sub_ast->type = _opcontrol;
+        sub_ast->val.strval = "continue";
         sub_ast->begin = begin;
         sub_ast->end = p->current_pos;
     }
@@ -1039,7 +1063,7 @@ int readcontrol(struct parser *p, struct ast *ast)
 
     struct ast *sub_ast = append_or_reuse_ast(ast, p);
 
-    if (readopbreak(p, sub_ast) && readchar(p, ';'))
+    if ((readopbreak(p, sub_ast) || readopcontinue(p, sub_ast)) && readchar(p, ';'))
     {
         ret = 1;
     }
@@ -1330,10 +1354,10 @@ int check_ast(struct ast *ast, struct scope *s, struct visitor_scope *vis_s, str
     {
         if (ast->size > 0)
             return throw_err(ast, err_s, "_var should have no edges!");
-        if (!getdef(s, ast->val.strval) && !vis_s->vardef)
+        if (!getdef(s, ast->val.strval) && vis_s->state != _invardef)
             return throw_err(ast, err_s, "_var should be defined before being used!");
 
-        if (vis_s->vardef)
+        if (vis_s->state == _invardef)
         {
             union Definition val;
             create_or_reuse_dl(ast, s, val);
@@ -1348,8 +1372,17 @@ int check_ast(struct ast *ast, struct scope *s, struct visitor_scope *vis_s, str
         {
             if (ast->size != 0)
                 return throw_err(ast, err_s, "break should not have any edges!");
-            if (!vis_s->whilecnt)
+            if (vis_s->state != _inwhile)
                 return throw_err(ast, err_s, "cannot break outside of a loop!");
+            return 1;
+        }
+
+        if ((!strcmp(ast->val.strval, "continue")))
+        {
+            if (ast->size != 0)
+                return throw_err(ast, err_s, "continue should not have any edges!");
+            if (vis_s->state != _inwhile)
+                return throw_err(ast, err_s, "cannot continue outside of a loop!");
             return 1;
         }
 
@@ -1357,7 +1390,7 @@ int check_ast(struct ast *ast, struct scope *s, struct visitor_scope *vis_s, str
         {
             if (ast->size != 1)
                 return throw_err(ast, err_s, "return should have 1 edge!");
-            if (!vis_s->funccnt)
+            if (vis_s->state != _infunc)
                 return throw_err(ast, err_s, "cannot return outside of a funk!");
             return 1;
         }
@@ -1378,18 +1411,22 @@ int check_ast(struct ast *ast, struct scope *s, struct visitor_scope *vis_s, str
 
         struct scope *func_s = duplicate_scope(s);
 
-        vis_s->funccnt += 1;
-        vis_s->vardef = 1;
-        if (!check_ast(ast->edges[0], func_s, vis_s, err_s)){
+        int _ogstate = vis_s->state;
+        vis_s->state = _invardef;
+        if (!check_ast(ast->edges[0], func_s, vis_s, err_s))
+        {
             clean_scope(func_s);
             return 0;
         }
-        vis_s->vardef = 0;
-        if (!check_ast(ast->edges[1], func_s, vis_s, err_s)) {
+        vis_s->state = 0;
+
+        vis_s->state = _infunc;
+        if (!check_ast(ast->edges[1], func_s, vis_s, err_s))
+        {
             clean_scope(func_s);
             return 0;
         }
-        vis_s->funccnt -= 1;
+        vis_s->state = _ogstate;
 
         clean_scope(func_s);
         free(func_s);
@@ -1461,10 +1498,11 @@ int check_ast(struct ast *ast, struct scope *s, struct visitor_scope *vis_s, str
         if (ast->edges[1]->type != _compound)
             return throw_err(ast, err_s, "_loop edges[1] should be of type _compound!");
 
-        vis_s->whilecnt += 1;
+        int _ogstate = vis_s->state;
+        vis_s->state = _inwhile;
         if (!check_ast(ast->edges[0], s, vis_s, err_s) || !check_ast(ast->edges[1], s, vis_s, err_s))
             return 0;
-        vis_s->whilecnt -= 1;
+        vis_s->state = _ogstate;
 
         return 1;
     }
@@ -1486,10 +1524,13 @@ int check_ast(struct ast *ast, struct scope *s, struct visitor_scope *vis_s, str
 
         if (ast->edges[0]->type != _var)
             return throw_err(ast, err_s, "_opeq edge[0] should be of type _var!");
-        vis_s->vardef = 1;
+
+        int _ogstate = vis_s->state;
+        vis_s->state = _invardef;
         if (!check_ast(ast->edges[0], s, vis_s, err_s))
             return 0;
-        vis_s->vardef = 0;
+        vis_s->state = _ogstate;
+
         if (!check_ast(ast->edges[1], s, vis_s, err_s))
             return 0;
 
@@ -1532,9 +1573,7 @@ int my_calc(struct parser *p, struct ast *ast, struct error_scope *err_s)
     {
         register_builtins(&s);
         struct visitor_scope vs;
-        vs.funccnt = 0;
-        vs.whilecnt = 0;
-        vs.vardef = 0;
+        vs.state = 0;
         ret = check_ast(ast, &s, &vs, err_s);
     }
 
@@ -1611,6 +1650,12 @@ int recursive_eval(struct ast *ast, struct scope *s, struct control_scope *ctrl_
             return 1;
         }
 
+        if (!strcmp(ast->val.strval, "continue"))
+        {
+            ctrl_s->continuecnt += 1;
+            return 1;
+        }
+
         if (!strcmp(ast->val.strval, "return"))
         {
             int ret = 0;
@@ -1678,8 +1723,13 @@ int recursive_eval(struct ast *ast, struct scope *s, struct control_scope *ctrl_
                         for (i = 0; i < func_ast->edges[1]->size; i++)
                         {
                             ret = recursive_eval(func_ast->edges[1]->edges[i], func_scope, ctrl_s);
-                            if (!ret || ctrl_s->returncnt)
+                            if (!ret)
                                 break;
+
+                            if (ctrl_s->returncnt)
+                            {
+                                ctrl_s->returncnt -= 1;
+                            }
                         }
 
                         struct def_list *ptr = func_scope->defs;
@@ -1767,16 +1817,30 @@ int recursive_eval(struct ast *ast, struct scope *s, struct control_scope *ctrl_
             recursive_eval(ast->edges[0], s, ctrl_s);
             if (s->current_val)
             {
-                while (true)
-                {
-                    ret = recursive_eval(ast->edges[1], s, ctrl_s);
+                for (int i = 0; i < ast->edges[1]->size; i++)
+                {                    
+                    ret = recursive_eval(ast->edges[1]->edges[i], s, ctrl_s);
 
-                    if (ret == 0 || ctrl_s->breakcnt)
+                    if (ret == 0)
                         break;
 
-                    recursive_eval(ast->edges[0], s, ctrl_s);
-                    if (!s->current_val)
+                    if (ctrl_s->breakcnt)
+                    {
+                        ctrl_s->breakcnt -= 1;
                         break;
+                    }
+
+                    if (i == ast->edges[1]->size - 1 || ctrl_s->continuecnt)
+                    {
+                        if(ctrl_s->continuecnt)
+                            ctrl_s->continuecnt -= 1;
+
+                        i = -1;
+
+                        recursive_eval(ast->edges[0], s, ctrl_s);
+                        if (!s->current_val)
+                            break;
+                    }
                 }
             }
 
@@ -1917,6 +1981,7 @@ int eval(struct ast *a, struct scope *s)
     struct control_scope cs;
     cs.breakcnt = 0;
     cs.returncnt = 0;
+    cs.continuecnt = 0;
 
     s->defs = 0;
     register_builtins(s);

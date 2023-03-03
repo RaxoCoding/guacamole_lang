@@ -7,7 +7,7 @@ FUNCCALL <- VAR'(' (CALC (',' CALC)*)? ')'
 FUNCDEF <- 'funk ' VAR'(' (TYPE VAR (',' TYPE VAR)*)? ')' '{' (ALLBLOCKS)* '}' ';'?
 
 # CONTROL
-CONTROL <- (OPBREAK / (OPRETURN CALC)) ';'
+CONTROL <- ((OPBREAK / OPCONTINUE) / (OPRETURN CALC)) ';'
 
 # BLOCKS
 BLOCK <- (IFELSEBLOCK / WHILEBLOCK)
@@ -32,6 +32,7 @@ OPELIF <- "elif"
 OPELSE <- "else"
 OPWHILE <- "while"
 OPBREAK <- "break"
+OPCONTINUE <- "continue"
 OPRETURN <- "return"
 OPLOGIC <- ("||" / "&&")
 OPCOMP <- ("==" / "!=" / "<=" / '<' / ">=" / '>')

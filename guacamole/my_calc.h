@@ -37,6 +37,7 @@ struct control_scope
 {
     int breakcnt;
     int returncnt;
+    int continuecnt;
 };
 
 // Error Scope for when checking AST for precise errors
@@ -50,9 +51,13 @@ struct error_scope
 // Visitor Scope for when checking AST
 struct visitor_scope
 {
-    int whilecnt;
-    int funccnt;
-    int vardef;
+    enum 
+    {
+        ___,
+        _infunc,
+        _inwhile,
+        _invardef,
+    } state;
 };
 
 union Constant

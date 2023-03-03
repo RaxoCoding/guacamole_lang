@@ -13,6 +13,7 @@ funk checkBigger(a, b) {
 
 while (1) {
 	a = add(a, 1);
+	break;
 	if(checkBigger(a, 5)) {
 		break;
 	}

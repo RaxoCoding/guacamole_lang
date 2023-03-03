@@ -77,8 +77,9 @@ c = (b ^ 4) * 4;
 ### Control Operators
 
 ```c
-break   // BREAK LOOP
-return  // RETURN FROM FUNK
+break    // BREAK LOOP
+return   // RETURN FROM FUNK
+continue // SKIP TO NEXT LOOP ITERATION
 ```
 
 ### Keywords
