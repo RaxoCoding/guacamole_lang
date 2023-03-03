@@ -1,0 +1,27 @@
+{
+  "name": "guacamole-syntax-highlight",
+  "displayName": "Guacamole Syntax Highlight",
+  "description": "Syntax highlighter for Guacamole!",
+  "icon": "./G_logo.png",
+  "publisher": "Raxo",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "g",
+      "aliases": ["Guacamole", "g"],
+      "extensions": [".g"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "g",
+      "scopeName": "lang.g",
+      "path": "./syntaxes/g.tmLanguage.json"
+    }]
+  }
+}

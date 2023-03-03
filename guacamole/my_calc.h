@@ -15,6 +15,7 @@ typedef enum
     _func,
 } dltype;
 
+// Variable & Function definition list
 struct def_list
 {
     char *name;
@@ -24,17 +25,33 @@ struct def_list
     struct def_list *next;
 };
 
+// Scope for evalutation functions and variables
 struct scope
 {
     struct def_list *defs;
     long int current_val;
 };
 
+// Control Scope for breaking and returning
+struct control_scope
+{
+    int breakcnt;
+    int returncnt;
+};
+
+// Error Scope for when checking AST for precise errors
 struct error_scope
 {
     int begin;
     int end;
     char *err;
+};
+
+// Visitor Scope for when checking AST
+struct visitor_scope
+{
+    int whilecnt;
+    int funccnt;
 };
 
 union Constant

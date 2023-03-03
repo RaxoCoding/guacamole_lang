@@ -1,0 +1,55 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Guacamole",
+  "patterns": [
+    {
+      "match": "//.*",
+      "name": "comment.line.g"
+    },
+    {
+      "match": ";",
+      "name": "punctuation.terminator.g"
+    },
+    {
+      "match": "\\+|-|\\*|/|%|\\^",
+      "name": "keyword.operator.arithmetic.g"
+    },
+    {
+      "match": "==|!=|<=|<|>=|>",
+      "name": "keyword.operator.comparison.g"
+    },
+    {
+      "match": "=",
+      "name": "keyword.operator.assignment.g"
+    },
+    {
+      "match": "\\b[0-9]+\\b",
+      "name": "constant.numeric.g"
+    },
+    {
+      "match": "\\b(if|elif|else|while)\\b",
+      "name": "keyword.control.g"
+    },
+    {
+      "match": "\\breturn\\b",
+      "name": "keyword.control.return.g"
+    },
+    {
+      "match": "\\bbreak\\b",
+      "name": "keyword.control.break.g"
+    },
+    {
+      "match": "\\bcontinue\\b",
+      "name": "keyword.control.continue.g"
+    },
+    {
+      "match": "\\b[a-zA-Z_][a-zA-Z_0-9]*\\b(?=\\()",
+      "name": "entity.name.function.g"
+    },
+    {
+      "match": "\\b[a-zA-Z_][a-zA-Z_0-9]*\\b",
+      "name": "variable.other.g"
+    }
+  ],
+  "scopeName": "lang.g"
+}

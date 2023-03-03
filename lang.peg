@@ -1,10 +1,13 @@
 # ENCAPSULATORS
 LANG <- ALLBLOCKS* EOF
-ALLBLOCKS <- (COMMENT / FUNCDEF / BLOCK / EXPR)
+ALLBLOCKS <- (COMMENT / CONTROL / FUNCDEF / BLOCK / EXPR)
 
 # FUNCTIONS
 FUNCCALL <- VAR'(' (CALC (',' CALC)*)? ')'
 FUNCDEF <- 'funk ' VAR'(' (TYPE VAR (',' TYPE VAR)*)? ')' '{' (ALLBLOCKS)* '}' ';'?
+
+# CONTROL
+CONTROL <- (OPBREAK / (OPRETURN CALC)) ';'
 
 # BLOCKS
 BLOCK <- (IFELSEBLOCK / WHILEBLOCK)
@@ -28,6 +31,8 @@ OPIF <- "if"
 OPELIF <- "elif"
 OPELSE <- "else"
 OPWHILE <- "while"
+OPBREAK <- "break"
+OPRETURN <- "return"
 OPLOGIC <- ("||" / "&&")
 OPCOMP <- ("==" / "!=" / "<=" / '<' / ">=" / '>')
 OPADD <- ('+' / '-' / '!')

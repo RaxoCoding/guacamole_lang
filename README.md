@@ -15,9 +15,14 @@ if you would like a syntax highlighter for *Guacamole*, I have included a `.vsix
 
 ## Usage
 
-Parse & Interpret code:
+Compile Compiler:
 ```sh
-> make clean && make && make compiler && ./compiler code.g
+> make clean && make && make compiler
+```
+
+Interpret Code:
+```sh
+> ./compiler code.g
 ```
 
 ## Definitions
@@ -69,6 +74,13 @@ b = a + 5;
 c = (b ^ 4) * 4;
 ```
 
+### Control Operators
+
+```c
+break   // BREAK LOOP
+return  // RETURN FROM FUNK
+```
+
 ### Keywords
 
 ```c
@@ -104,7 +116,7 @@ while (a < 5) {
 
 ```c
 funk add(a, b) {
-    a + b;
+    return a + b;
 }
 ```
 

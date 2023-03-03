@@ -1,11 +1,12 @@
 a = 0;
 
-while (a > 3 || (a == 0 && !(a > 3) )) {
+while (1) {
 	a = a + 1;
+	if(a > 3) { break; }
 }
 
 funk add(a, b) {
-	a + b;
+	return a + b;
 }
 
 c = add(1, 2);
