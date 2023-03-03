@@ -52,6 +52,7 @@ struct visitor_scope
 {
     int whilecnt;
     int funccnt;
+    int vardef;
 };
 
 union Constant

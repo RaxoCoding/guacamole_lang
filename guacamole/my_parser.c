@@ -66,7 +66,7 @@ int reset_pos(struct parser *p, int tmp)
 char *get_line_error(struct parser *p)
 {
     int begin;
-    for (begin = p->last_pos - 1; p->content[begin] != '\n' && begin > 0; begin -= 1)
+    for (begin = p->last_pos; p->content[begin] != '\n' && begin > 0; begin -= 1)
         ;
 
     if (p->content[begin] == '\n')

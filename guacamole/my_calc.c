@@ -593,11 +593,18 @@ int readpar(struct parser *p, struct ast *ast)
     {
         char *tmp = get_value(p, "VAR");
 
-        par_ast->type = _var;
-        par_ast->val.strval = tmp;
-        par_ast->end = p->current_pos;
+        if (!strcmp(tmp, "return") || !strcmp(tmp, "while") || !strcmp(tmp, "break") || !strcmp(tmp, "funk") || !strcmp(tmp, "if") || !strcmp(tmp, "elif") || !strcmp(tmp, "else"))
+        {
+            free(tmp);
+        }
+        else
+        {
+            par_ast->type = _var;
+            par_ast->val.strval = tmp;
+            par_ast->end = p->current_pos;
 
-        ret = 1;
+            ret = 1;
+        }
     }
     else if (readchar(p, '(') && readcalc(p, par_ast) && readchar(p, ')'))
         ret = 1;
@@ -1039,7 +1046,6 @@ int readcontrol(struct parser *p, struct ast *ast)
     else if (readopreturn(p, sub_ast) && readcalc(p, sub_ast) && readchar(p, ';'))
         ret = 1;
 
-
     if (!ret)
     {
         remove_last(ast);
@@ -1256,6 +1262,45 @@ void clean_scope(struct scope *s)
     }
 }
 
+struct scope *duplicate_scope(struct scope *s)
+{
+    struct scope *new_scope = calloc(1, sizeof(struct scope));
+
+    struct def_list *ptr = s->defs;
+    if (ptr != NULL)
+    {
+        struct def_list *last = NULL;
+        while (ptr)
+        {
+            struct def_list *tmp = ptr->next;
+
+            struct def_list *dl = calloc(1, sizeof(struct def_list));
+
+            if (new_scope->defs == NULL)
+                new_scope->defs = dl;
+
+            char *name = calloc(1, sizeof(char) * (strlen(ptr->name) + 1));
+            strcpy(name, ptr->name);
+            dl->name = name;
+
+            dl->val = ptr->val;
+            dl->builtin = ptr->builtin;
+            dl->type = ptr->type;
+
+            if (last)
+                last->next = dl;
+            else
+                dl->next = NULL;
+
+            last = dl;
+
+            ptr = tmp;
+        }
+    }
+
+    return new_scope;
+}
+
 int throw_err(struct ast *ast, struct error_scope *err_s, char *msg)
 {
     if (err_s->begin == -1)
@@ -1285,6 +1330,14 @@ int check_ast(struct ast *ast, struct scope *s, struct visitor_scope *vis_s, str
     {
         if (ast->size > 0)
             return throw_err(ast, err_s, "_var should have no edges!");
+        if (!getdef(s, ast->val.strval) && !vis_s->vardef)
+            return throw_err(ast, err_s, "_var should be defined before being used!");
+
+        if (vis_s->vardef)
+        {
+            union Definition val;
+            create_or_reuse_dl(ast, s, val);
+        }
 
         return 1;
     }
@@ -1323,11 +1376,23 @@ int check_ast(struct ast *ast, struct scope *s, struct visitor_scope *vis_s, str
         val.astptr = ast;
         create_or_reuse_dl(ast, s, val);
 
+        struct scope *func_s = duplicate_scope(s);
+
         vis_s->funccnt += 1;
-        if (!check_ast(ast->edges[0], s, vis_s, err_s) || !check_ast(ast->edges[1], s, vis_s, err_s))
+        vis_s->vardef = 1;
+        if (!check_ast(ast->edges[0], func_s, vis_s, err_s)){
+            clean_scope(func_s);
             return 0;
+        }
+        vis_s->vardef = 0;
+        if (!check_ast(ast->edges[1], func_s, vis_s, err_s)) {
+            clean_scope(func_s);
+            return 0;
+        }
         vis_s->funccnt -= 1;
 
+        clean_scope(func_s);
+        free(func_s);
         return 1;
     }
 
@@ -1421,7 +1486,11 @@ int check_ast(struct ast *ast, struct scope *s, struct visitor_scope *vis_s, str
 
         if (ast->edges[0]->type != _var)
             return throw_err(ast, err_s, "_opeq edge[0] should be of type _var!");
-        if (!check_ast(ast->edges[0], s, vis_s, err_s) || !check_ast(ast->edges[1], s, vis_s, err_s))
+        vis_s->vardef = 1;
+        if (!check_ast(ast->edges[0], s, vis_s, err_s))
+            return 0;
+        vis_s->vardef = 0;
+        if (!check_ast(ast->edges[1], s, vis_s, err_s))
             return 0;
 
         return 1;
@@ -1465,6 +1534,7 @@ int my_calc(struct parser *p, struct ast *ast, struct error_scope *err_s)
         struct visitor_scope vs;
         vs.funccnt = 0;
         vs.whilecnt = 0;
+        vs.vardef = 0;
         ret = check_ast(ast, &s, &vs, err_s);
     }
 
@@ -1507,45 +1577,6 @@ int check_cond(long a, long b, char *opc)
     }
 
     return 0;
-}
-
-struct scope *duplicate_scope(struct scope *s)
-{
-    struct scope *new_scope = calloc(1, sizeof(struct scope));
-
-    struct def_list *ptr = s->defs;
-    if (ptr != NULL)
-    {
-        struct def_list *last = NULL;
-        while (ptr)
-        {
-            struct def_list *tmp = ptr->next;
-
-            struct def_list *dl = calloc(1, sizeof(struct def_list));
-
-            if (new_scope->defs == NULL)
-                new_scope->defs = dl;
-
-            char *name = calloc(1, sizeof(char) * (strlen(ptr->name) + 1));
-            strcpy(name, ptr->name);
-            dl->name = name;
-
-            dl->val = ptr->val;
-            dl->builtin = ptr->builtin;
-            dl->type = ptr->type;
-
-            if (last)
-                last->next = dl;
-            else
-                dl->next = NULL;
-
-            last = dl;
-
-            ptr = tmp;
-        }
-    }
-
-    return new_scope;
 }
 
 int recursive_eval(struct ast *ast, struct scope *s, struct control_scope *ctrl_s)
