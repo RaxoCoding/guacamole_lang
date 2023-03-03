@@ -1700,6 +1700,10 @@ int recursive_eval(struct ast *ast, struct scope *s, struct control_scope *ctrl_
                 {
                     ret = _print(args_res[0]);
                 }
+                else if (!strcmp(ptr->name, "donut"))
+                {
+                    ret = _donut();
+                }
             }
             else
             {
@@ -1818,7 +1822,7 @@ int recursive_eval(struct ast *ast, struct scope *s, struct control_scope *ctrl_
             if (s->current_val)
             {
                 for (int i = 0; i < ast->edges[1]->size; i++)
-                {                    
+                {
                     ret = recursive_eval(ast->edges[1]->edges[i], s, ctrl_s);
 
                     if (ret == 0)
@@ -1832,7 +1836,7 @@ int recursive_eval(struct ast *ast, struct scope *s, struct control_scope *ctrl_
 
                     if (i == ast->edges[1]->size - 1 || ctrl_s->continuecnt)
                     {
-                        if(ctrl_s->continuecnt)
+                        if (ctrl_s->continuecnt)
                             ctrl_s->continuecnt -= 1;
 
                         i = -1;

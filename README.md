@@ -66,7 +66,7 @@ Interpret Code:
 
 ### Variables
 
-```c
+```cw
 a = 1;
 
 b = a + 5;
@@ -126,5 +126,6 @@ funk add(a, b) {
 ```c
 print(a);   // PRINTS WITH 1 SPACE AFTER
 println(a); // PRINTS WITH NEWLINE AFTER
+donut();    // DONUT!!!!
 ```
 

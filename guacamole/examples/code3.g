@@ -1,11 +1,25 @@
 a = 0;
 
+b = 1;
+c = 0;
+
+i = 0;
 while (a > -1) {
 	print(a);
 	if(a == 0) {
-		continue;
+		a = b;
+	} else {
+		a = c;
 	}
-	a = a + 1;
+
+	if(i == 100) {
+		tmp = b;
+		b = c;
+		c = tmp;
+		i = 0;
+	}
+
+	i = i + 1;
 }
 
 a;

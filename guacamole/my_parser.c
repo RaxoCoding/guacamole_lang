@@ -96,7 +96,9 @@ int readeof(struct parser *p)
 
 void nextpos(struct parser *p)
 {
-    (void)p;
+    p->current_pos += 1;
+    if (p->current_pos > p->last_pos)
+        p->last_pos = p->current_pos;
 }
 
 int nextchar(struct parser *p)
@@ -104,9 +106,7 @@ int nextchar(struct parser *p)
     if (readeof(p))
         return 0;
 
-    p->current_pos += 1;
-    if (p->current_pos > p->last_pos)
-        p->last_pos = p->current_pos;
+    nextpos(p);
 
     return 1;
 }

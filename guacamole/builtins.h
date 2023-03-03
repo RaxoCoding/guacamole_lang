@@ -11,4 +11,7 @@ int _print(int val);
 // Print with new lines
 int _println(int val);
 
+// DONUT
+int _donut();
+
 #endif /* _BUILTINS_H */
